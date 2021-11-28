@@ -26,6 +26,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include<stdarg.h>
+#include "ANSI_Escape_Sequences.h"
 
 /* USER CODE END Includes */
 
@@ -131,46 +132,25 @@ uint8_t cmnd_len = 0;
 
 #define DELAY_TICKS pdMS_TO_TICKS(500)
 
-#include<stdarg.h>
-#define ANSI_256_COLOR_FG(x) "\033[38;5;"#x"m"
-#define ANSI_256_COLOR_BG(x) "\033[48;5;"#x"m"
-#define ANSI_TERMINATE "\033[0m\r\n"
-#define ANSI_COLOR_BLACK "\033[0;31m"
-
-
-/*
-uint8_t menu[] =
-{"LED_ON\t\t\t-->\t0\n\r\
-LED_OFF\t\t\t-->\t1\n\r\
-LED_TOGGLE\t\t-->\t2\n\r\
-LED_TOGGLE_OFF\t\t-->\t3\n\r\
-LED_READ_STATUS\t\t-->\t4\n\r\
-RTC_PRINT_TIME\t\t-->\t5\n\r\
-\033[0;31mEXIT_TASK\t\t-->\t6\033[0m\n\r\
-Clear_Screen\t\t-->\t7\n\r\
-Type options here  ===== "};
-		"\033[38;5;116mHello\033[0m\r\n"
-		"\033[0;39m _______________________________________ \r\n"
-		"\033[0;38m/ Human beings were created by water to \\\r\n"
-		"\033[0;36m --------------------------------------- \r\n"
-		"\033[0;35m        \\   ^__^\r\n"
-		"\033[0;34m         \\  (oo)\\_______\r\n"
-		"\033[0;33m            (__)\\       )\\/\\\r\n"
-		"\033[0;32m                ||----w |\r\n"
-		"\033[0;31m                ||     ||\r\n\033[0m"
-*/
 uint8_t menu[] =
 {
-        ANSI_256_COLOR_FG(21)"Hello\033[0m\r\n"
-        ANSI_256_COLOR_FG(84)" _______________________________________ "ANSI_TERMINATE
-        ANSI_256_COLOR_FG(160)"/ Human beings were created by water to \\"ANSI_TERMINATE
-        ANSI_256_COLOR_FG(194)"\ transport it uphill.                  /"ANSI_TERMINATE
-        ANSI_256_COLOR_FG(121)" --------------------------------------- "ANSI_TERMINATE
-        ANSI_256_COLOR_FG(172)"        \\   ^__^"ANSI_TERMINATE
-        ANSI_256_COLOR_FG(154)"         \\  (oo)\\_______"ANSI_TERMINATE
-        ANSI_256_COLOR_FG(33)"            (__)\\       )\\/\\"ANSI_TERMINATE
-        ANSI_256_COLOR_FG(49)"                ||----w |"ANSI_TERMINATE
-        ANSI_256_COLOR_FG(210)"                ||     ||"
+		ANSI_CLR_SCR
+/*
+		ANSI_MOVE_CURSOR_TO_POS(20,30)"Hello\n"
+		"Hello - 2 \n"
+		ANSI_MOVE_CURSOR_TO_POS(10,10)"Hello\n"
+		"Hello -4"
+*/
+        ANSI_MOVE_CURSOR_TO_POS(20,30)ANSI_256_COLOR_FG(84)" _______________________________________ "ANSI_TERMINATE
+        ANSI_MOVE_CURSOR_TO_POS(21,30)ANSI_256_COLOR_FG(160)"/ Human beings were created by water to \\"ANSI_TERMINATE
+        ANSI_MOVE_CURSOR_TO_POS(22,30)ANSI_256_COLOR_FG(194)"\ transport it uphill.                  /"ANSI_TERMINATE
+        ANSI_MOVE_CURSOR_TO_POS(23,30)ANSI_256_COLOR_FG(121)" --------------------------------------- "ANSI_TERMINATE
+        ANSI_MOVE_CURSOR_TO_POS(24,30)ANSI_256_COLOR_FG(172)"        \\   ^__^"ANSI_TERMINATE
+        ANSI_MOVE_CURSOR_TO_POS(25,30)ANSI_256_COLOR_FG(154)"         \\  (oo)\\_______"ANSI_TERMINATE
+        ANSI_MOVE_CURSOR_TO_POS(26,30)ANSI_256_COLOR_FG(33)"            (__)\\       )\\/\\"ANSI_TERMINATE
+        ANSI_MOVE_CURSOR_TO_POS(27,30)ANSI_256_COLOR_FG(49)"                ||----w |"ANSI_TERMINATE
+		ANSI_MOVE_CURSOR_TO_POS(28,30)ANSI_256_COLOR_FG(210)"                ||     ||"ANSI_TERMINATE
+
 };
 
 int main(void)
@@ -375,7 +355,9 @@ void led_status(uint8_t var){
 }
 
 void led_toggle_start(TimerHandle_t xTimer ){
-	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+/*	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);*/
+
+	printmsg(menu);
 }
 
 void led_toggle(uint8_t var, uint32_t duration){
