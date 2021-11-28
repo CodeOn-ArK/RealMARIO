@@ -44,6 +44,10 @@
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+#define DOR "%d"
+#define ANSI_256_COLOR_FG "\033[38;5;"DOR"m"
+#define MACRO "test-"DOR" done"
+#define ANSI_TERMINATE "\033[0m\r\n"
 
 /* USER CODE END PV */
 
@@ -123,8 +127,10 @@ int main(void)
 	status = xTaskCreate(task1_handler, "TASK 1", configMINIMAL_STACK_SIZE, "TASK 1\n\r", 2, &task1_handle);
 	configASSERT(status == pdPASS);
 
+/*
 	status = xTaskCreate(task2_handler, "TASK 2", configMINIMAL_STACK_SIZE, "Hello world from TASK 2\n\r", 2, &task2_handle);
 	configASSERT(status == pdPASS);
+*/
 
 	//start FreeRTOS scheduler
 	vTaskStartScheduler();
@@ -249,23 +255,29 @@ static void MX_GPIO_Init(void)
 
 }
 
+uint8_t i=0;
 /* USER CODE BEGIN 4 */
 static void task1_handler(void *parameter)
 {
 
 	while(1){
-		printf("%s\n", (char *)parameter);
+		//printf("%s\n", (char *)parameter);
+		printmsg(ANSI_256_COLOR_FG MACRO ANSI_TERMINATE, i, i++);
+		vTaskDelay(pdMS_TO_TICKS(10));
 		//taskYIELD();
 	}
 }
+/*
 static void task2_handler(void *parameter)
 {
 
 	while(1){
-		printf("%s\n", (char *)parameter);
+		printmsg(ANSI_256_COLOR_FG MACRO ANSI_TERMINATE, i, i++);
+		vTaskDelay(pdMS_TO_TICKS(1000));
 		//taskYIELD();
 	}
 }
+*/
 
 /* USER CODE END 4 */
 
