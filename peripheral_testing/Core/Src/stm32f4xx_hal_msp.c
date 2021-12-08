@@ -71,9 +71,7 @@ void HAL_MspInit(void)
   __HAL_RCC_SYSCFG_CLK_ENABLE();
   __HAL_RCC_PWR_CLK_ENABLE();
 
-#ifdef ENABLE_MANUAL_PRIORITY
   HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_0);
-#endif //ENABLE_MANUAL_PRIORITY
 
   /* System interrupt init*/
 
@@ -111,7 +109,6 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
     GPIO_InitStruct.Alternate = GPIO_AF7_USART2;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /* USER CODE BEGIN USART2_MspInit 1 */
     /* USART2 DMA Init */
     /* USART2_TX Init */
     hdma_usart2_tx.Instance = DMA1_Stream6;
@@ -120,11 +117,11 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
     hdma_usart2_tx.Init.PeriphInc = DMA_PINC_DISABLE;
     hdma_usart2_tx.Init.MemInc = DMA_MINC_ENABLE;
     hdma_usart2_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
-    hdma_usart2_tx.Init.MemDataAlignment = DMA_MDATAALIGN_WORD;
+    hdma_usart2_tx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
     hdma_usart2_tx.Init.Mode = DMA_NORMAL;
-    hdma_usart2_tx.Init.Priority = DMA_PRIORITY_VERY_HIGH;
+    hdma_usart2_tx.Init.Priority = DMA_PRIORITY_LOW;
     hdma_usart2_tx.Init.FIFOMode = DMA_FIFOMODE_ENABLE;
-    hdma_usart2_tx.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_1QUARTERFULL;
+    hdma_usart2_tx.Init.FIFOThreshold = DMA_FIFO_THRESHOLD_FULL;
     hdma_usart2_tx.Init.MemBurst = DMA_MBURST_SINGLE;
     hdma_usart2_tx.Init.PeriphBurst = DMA_PBURST_SINGLE;
     if (HAL_DMA_Init(&hdma_usart2_tx) != HAL_OK)
@@ -138,6 +135,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
     HAL_NVIC_SetPriority(USART2_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(USART2_IRQn);
   /* USER CODE BEGIN USART2_MspInit 1 */
+
   /* USER CODE END USART2_MspInit 1 */
   }
 
@@ -181,4 +179,3 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
 
 /* USER CODE END 1 */
 
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

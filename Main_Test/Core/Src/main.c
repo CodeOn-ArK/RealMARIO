@@ -48,6 +48,8 @@
 
 /* Private variables ---------------------------------------------------------*/
 UART_HandleTypeDef huart2;
+uint8_t receive_buf;
+DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN PV */
 
@@ -57,10 +59,11 @@ UART_HandleTypeDef huart2;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_DMA_Init(void);
 void SystemClock_Config(void);
 
 void RTOS_delay(uint32_t delay_count);
-void printmsg(const char *format,...);
+HAL_StatusTypeDef printmsg(const char *format,...);
 uint8_t get_cmnd_code(uint8_t val);
 void get_args(uint8_t *buffer);
 void led_status(uint8_t var);
@@ -70,7 +73,7 @@ void get_time(void);
 void exit_app(void);
 void led_toggle_start(TimerHandle_t xTimer );
 
-void printmsg(const char *format,...)
+HAL_StatusTypeDef printmsg(const char *format,...)
 {
        char str[1024];
 
@@ -79,9 +82,10 @@ void printmsg(const char *format,...)
        va_start(args, format);
        vsprintf(str, format, args);
 
-       strcat(str,"\n\r");
-       HAL_UART_Transmit(&huart2, (uint8_t *)str, strlen(str), HAL_MAX_DELAY);
+      // strcat(str,"\n\r");
        va_end(args);
+      return HAL_UART_Transmit_DMA(&huart2, (uint8_t *)str, strlen(str));
+      // HAL_UART_Transmit(&huart2, (uint8_t *)str, strlen(str),HAL_MAX_DELAY);
 }
 /* USER CODE BEGIN PFP */
 //Task Prototypes
@@ -89,6 +93,7 @@ static void Tmenu_print(void *parameter);
 static void Tcmnd_handling(void *parameter);
 static void Tcmnd_processing(void *parameter);
 static void Tuart_write(void *parameter);
+static void lol_task(void *arg);
 
 //Software timer handle
 xTimerHandle LED_Timer = NULL;
@@ -121,6 +126,7 @@ typedef struct APP_CMND{
 
 uint8_t cmnd_buffer[20];
 uint8_t cmnd_len = 0;
+extern object_t main_char_body;
 
 #define LED_ON				0
 #define LED_OFF				1
@@ -132,32 +138,44 @@ uint8_t cmnd_len = 0;
 
 #define DELAY_TICKS pdMS_TO_TICKS(500)
 
+
 uint8_t menu[] =
 {
-		ANSI_CLR_SCR
-/*
-		ANSI_MOVE_CURSOR_TO_POS(20,30)"Hello\n"
+	"\033[?25l"
+		/*
+		ANSI_MOVE_CURSOR_TO_PO"Hello\n"
 		"Hello - 2 \n"
 		ANSI_MOVE_CURSOR_TO_POS(10,10)"Hello\n"
 		"Hello -4"
 */
-        ANSI_MOVE_CURSOR_TO_POS(20,30)ANSI_256_COLOR_FG(84)" _______________________________________ "ANSI_TERMINATE
-        ANSI_MOVE_CURSOR_TO_POS(21,30)ANSI_256_COLOR_FG(160)"/ Human beings were created by water to \\"ANSI_TERMINATE
-        ANSI_MOVE_CURSOR_TO_POS(22,30)ANSI_256_COLOR_FG(194)"\ transport it uphill.                  /"ANSI_TERMINATE
-        ANSI_MOVE_CURSOR_TO_POS(23,30)ANSI_256_COLOR_FG(121)" --------------------------------------- "ANSI_TERMINATE
-        ANSI_MOVE_CURSOR_TO_POS(24,30)ANSI_256_COLOR_FG(172)"        \\   ^__^"ANSI_TERMINATE
-        ANSI_MOVE_CURSOR_TO_POS(25,30)ANSI_256_COLOR_FG(154)"         \\  (oo)\\_______"ANSI_TERMINATE
-        ANSI_MOVE_CURSOR_TO_POS(26,30)ANSI_256_COLOR_FG(33)"            (__)\\       )\\/\\"ANSI_TERMINATE
-        ANSI_MOVE_CURSOR_TO_POS(27,30)ANSI_256_COLOR_FG(49)"                ||----w |"ANSI_TERMINATE
-		ANSI_MOVE_CURSOR_TO_POS(28,30)ANSI_256_COLOR_FG(210)"                ||     ||"ANSI_TERMINATE
+  		ANSI_CLR_SCR
+		 ANSI_MOVE_CURSOR_TO_POS_LINE(20)ANSI_ESC"1m"ANSI_ESC "97m    ▄▄▄"ANSI_ESC"0m"
+		 ANSI_MOVE_CURSOR_TO_POS_LINE(21)ANSI_ESC"11m"ANSI_ESC"97m ▄█████▄▄ "ANSI_ESC"0m"
+		 ANSI_MOVE_CURSOR_TO_POS_LINE(22)ANSI_ESC"11m"ANSI_ESC"97m███"ANSI_ESC"46m▀▀▀▀"ANSI_ESC"40m▀"ANSI_ESC"46m▀"ANSI_ESC"40m▀"ANSI_ESC"46m▀"ANSI_ESC"0m"
+		 ANSI_MOVE_CURSOR_TO_POS_LINE(23)ANSI_ESC"11m"ANSI_ESC"97m███"ANSI_ESC"46m▄   "ANSI_ESC"22m"ANSI_ESC"30m▀ ▀"ANSI_ESC"0m"ANSI_ESC"36m▀"ANSI_ESC"0m"
+		 ANSI_MOVE_CURSOR_TO_POS_LINE(24)ANSI_ESC"11m"ANSI_ESC"97m ▄"ANSI_ESC"46m  "ANSI_ESC"0m"ANSI_ESC"1m"ANSI_ESC"97m█████▄ "ANSI_ESC"22m"ANSI_ESC"31m█▄"ANSI_ESC"0m"
+		 ANSI_MOVE_CURSOR_TO_POS_LINE(25)ANSI_ESC"122m"ANSI_ESC"31m▀▀"ANSI_ESC"0m"ANSI_ESC"1m"ANSI_ESC"41m"ANSI_ESC"97m▄"ANSI_ESC"46m▄   "ANSI_ESC"41m▄▄▄"ANSI_ESC"0m"ANSI_ESC"22m"ANSI_ESC"31m▀██▀"ANSI_ESC"0m"
+};
+
+uint8_t leg_1[] = {
+		ANSI_MOVE_CURSOR_TO_POS_LINE(26) ANSI_ESC"11m"ANSI_ESC"97m ██▀▀▀██▀  "ANSI_ESC"22m"ANSI_ESC"31m▀"ANSI_ESC"0m"
+		ANSI_MOVE_CURSOR_TO_POS_LINE(27) ANSI_ESC"11m"ANSI_ESC"97m ▀▀▀▀ ▀▀▀▀"ANSI_ESC"0m"
+};
+
+uint8_t leg_2[] = {
+		 ANSI_MOVE_CURSOR_TO_POS_LINE(26)ANSI_ESC"11m"ANSI_ESC"97m ██▀▀▀██▀  "ANSI_ESC"22m"ANSI_ESC"31m▀"ANSI_ESC"0m"
+		 ANSI_MOVE_CURSOR_TO_POS_LINE(27)ANSI_ESC"11m"ANSI_ESC"97m  ▀▀▀▀ ▀▀▀▀"ANSI_ESC"0m"
 
 };
+uint8_t var[] = "%s";
+#define DATA	ANSI_CLR_SCR ANSI_MOVE_CURSOR_TO_PO ANSI_256_COLOR_F " _______________________________________ "ANSI_TERMINATE
 
 int main(void)
 {
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
+
 
   /* MCU Configuration--------------------------------------------------------*/
 
@@ -178,9 +196,10 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-  BaseType_t status;
+  __unused BaseType_t status;
 
 	//printf("The application has started\n\r");
 
@@ -192,8 +211,13 @@ int main(void)
   cmnd_queue = xQueueCreate(10, sizeof(int *));
   uart_write_queue = xQueueCreate(10, sizeof(char *));
 
-  HAL_UART_Receive_IT(&huart2, cmnd_buffer, 2);
+  //object_init(NULL);
+ // HAL_UART_Receive_IT(&huart2, cmnd_buffer, 2);
+  HAL_UART_Receive_IT(&huart2, &receive_buf, 1);
+ HAL_UART_Transmit_DMA(&huart2, (uint8_t *)"hello", 5);
   if((cmnd_queue != NULL) && (uart_write_queue != NULL)){
+//	  status = xTaskCreate(lol_task, "lol", 1024, NULL, 1, NULL);
+/*
 	status = xTaskCreate(Tmenu_print, "Menu Print", 1000, NULL, 1, &Hmenu_print);
 	configASSERT(status == pdPASS);
 	status = xTaskCreate(Tcmnd_handling, "Cmnd Handler", 1000, NULL, 2, &Hcmnd_handling);
@@ -202,6 +226,7 @@ int main(void)
 	configASSERT(status == pdPASS);
 	status = xTaskCreate(Tuart_write,"UART Write" ,	1000, NULL, 2, &Huart_write);
 	configASSERT(status == pdPASS);
+*/
 
 	//start FreeRTOS scheduler
 	vTaskStartScheduler();
@@ -226,6 +251,21 @@ int main(void)
   /* USER CODE END 3 */
 }
 /* USER CODE BEGIN 4 */
+static void lol_task(void *arg){
+	static uint16_t i=0;
+	while(1){
+		if(i == 256) i=0;
+		//printmsg(menu,i);// i, i, i, i, i, i, i , i);
+		printmsg((const char *)menu, i,i,i,i,i,i);
+		vTaskDelay(pdMS_TO_TICKS(10));
+		printmsg((const char *)leg_1,i,i);
+		//(i%2 == 0)? printmsg((const char *)leg_1,i,i):printmsg((const char *)leg_2,i,i);
+		i++;
+		vTaskDelay(pdMS_TO_TICKS(100));
+		//printmsg(menu,i,i);
+		//vTaskDelay(pdMS_TO_TICKS(1000));
+	}
+}
 static void Tmenu_print(void *parameter){
 	/*
 	 * This task is responsible for displaying menu
@@ -309,6 +349,7 @@ static void Tuart_write(void *parameter){
 	while(1){
 		xQueueReceive(uart_write_queue, &pData, portMAX_DELAY);
 		printmsg(pData);
+/*		printmsg(var, "ello");*/
 	}
 }
 
@@ -326,6 +367,7 @@ void RTOS_delay(uint32_t delay_count)
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *Huart){
+/*
 	BaseType_t pxHigherPriorityTaskWoken;
 
 	HAL_UART_Receive_IT(&huart2, cmnd_buffer, 2);
@@ -338,7 +380,22 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *Huart){
 	if(pxHigherPriorityTaskWoken){
 		taskYIELD();				//Give control to higher priority TASK
 	}
-
+*/
+	static int i=0;
+	  HAL_UART_Receive_IT(&huart2, &receive_buf, 1);
+	if(receive_buf == 'l'){
+		if(i == 256) i=0;
+		i++;
+		printmsg((const char *)menu, i,i,i,i,i,i,i,i);
+	}else if(receive_buf == 'h'){
+		if(i == 0) i=1;
+		i--;
+		printmsg((const char *)menu, i,i,i,i,i,i,i,i);
+	}
+	else if(receive_buf == 'c')
+		//huartHAL_UART_Transmit(Huart, (uint8_t *)"\033[2J", 4, HAL_MAX_DELAY);
+		printmsg(ANSI_CLR_SCR);
+	memset(&receive_buf, 0 , sizeof(receive_buf));
 }
 
 uint8_t get_cmnd_code(uint8_t val){
@@ -355,9 +412,12 @@ void led_status(uint8_t var){
 }
 
 void led_toggle_start(TimerHandle_t xTimer ){
-/*	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);*/
+	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 
-	printmsg(menu);
+	static uint16_t i=0;
+	if(i == 256) i=0;
+	printmsg(menu,i, i+1, i+2, i+3, i+4, i+5, i+6, i +7 );
+	i += 7;
 }
 
 void led_toggle(uint8_t var, uint32_t duration){
@@ -440,7 +500,13 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = 8;
+  RCC_OscInitStruct.PLL.PLLN = 100;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 2;
+  RCC_OscInitStruct.PLL.PLLR = 2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -449,12 +515,12 @@ void SystemClock_Config(void)
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3) != HAL_OK)
   {
     Error_Handler();
   }
@@ -495,6 +561,22 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Stream6_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream6_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -525,6 +607,30 @@ static void MX_GPIO_Init(void)
 
 }
 
+/* USER CODE BEGIN 4 */
+/*
+void  HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
+	  HAL_UART_Receive_IT(&huart2, &receive_buf, 1);
+	if(receive_buf == 'h')
+		HAL_UART_Transmit(huart, (uint8_t *)"hello\n", 6, HAL_MAX_DELAY);
+	else if(receive_buf == 'c')
+		HAL_UART_Transmit(huart, (uint8_t *)"\033[2J", 4, HAL_MAX_DELAY);
+	memset(&receive_buf, 0 , sizeof(receive_buf));
+	//if(receive_buf == '\r')
+		//receive_buf = 'h';
+
+}
+*/
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart){
+	  HAL_UART_Receive_IT(&huart2, &receive_buf, 1);
+	HAL_UART_Transmit(huart, (uint8_t *)"ERR\n", 4, HAL_MAX_DELAY);
+	memset(&receive_buf, 0 , sizeof(receive_buf));
+}
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
+
+}
 #ifdef  USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number
