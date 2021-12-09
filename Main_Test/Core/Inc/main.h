@@ -60,7 +60,7 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-
+int ansi_anim();
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
